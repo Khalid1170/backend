@@ -3,11 +3,23 @@ from .extensions import db
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+
     email = db.Column(db.String(120), unique=True, nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+
+    first_name = db.Column(db.String(80), nullable=False)
+    last_name = db.Column(db.String(80), nullable=False)
+
+    phone_number = db.Column(db.String(30), nullable=False)
+    city = db.Column(db.String(80), nullable=False)
+
+    profile_pic = db.Column(db.String(255), nullable=True)
+
     password_hash = db.Column(db.String(255), nullable=False)
 
-    listings = db.relationship("Listing", backref="user", lazy=True)
     is_subscribed = db.Column(db.Boolean, default=False)
+
+    listings = db.relationship("Listing", backref="user", lazy=True)
 
 
 class Listing(db.Model):
@@ -20,7 +32,6 @@ class Listing(db.Model):
     mileage = db.Column(db.Integer)
     price = db.Column(db.Integer)
 
-    # NEW FIELDS
     fuel_type = db.Column(db.String(50))
     gearbox = db.Column(db.String(50))
     engine_size = db.Column(db.String(20))

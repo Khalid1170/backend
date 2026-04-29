@@ -9,36 +9,65 @@ import os
 auth_bp = Blueprint("auth", __name__)
 
 
-# 🔐 REGISTER
+# =========================
+# REGISTER
+# =========================
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
+
+    data = request.form
 
     email = data.get("email")
+    username = data.get("username")
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+    phone_number = data.get("phone_number")
+    city = data.get("city")
     password = data.get("password")
 
-    if not email or not password:
-        return jsonify({"error": "Missing fields"}), 400
+    file = request.files.get("profile_pic")
 
-    # check if user exists
-    existing_user = User.query.filter_by(email=email).first()
-    if existing_user:
-        return jsonify({"error": "User already exists"}), 400
+    if not all([email, username, first_name, last_name, phone_number, city, password]):
+        return jsonify({"error": "All fields are required"}), 400
 
-    # hash password
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email already exists"}), 400
+
     hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
 
-    user = User(email=email, password_hash=hashed_pw.decode("utf-8"))
+    user = User(
+        email=email,
+        username=username,
+        first_name=first_name,
+        last_name=last_name,
+        phone_number=phone_number,
+        city=city,
+        password_hash=hashed_pw.decode("utf-8")
+    )
 
     db.session.add(user)
     db.session.commit()
 
+    # profile pic
+    if file:
+        folder = os.path.join(os.getcwd(), "static/profiles")
+        os.makedirs(folder, exist_ok=True)
+
+        filename = f"{user.id}.png"
+        file.save(os.path.join(folder, filename))
+
+        user.profile_pic = filename
+        db.session.commit()
+
     return jsonify({"message": "User created successfully"}), 201
 
 
-# 🔓 LOGIN
+# =========================
+# LOGIN
+# =========================
 @auth_bp.route("/login", methods=["POST"])
 def login():
+
     data = request.get_json()
 
     email = data.get("email")
@@ -52,7 +81,6 @@ def login():
     if not bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8")):
         return jsonify({"error": "Invalid credentials"}), 401
 
-    # generate token
     token = jwt.encode(
         {
             "user_id": user.id,

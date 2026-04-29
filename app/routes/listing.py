@@ -8,6 +8,9 @@ import os
 listing_bp = Blueprint("listing", __name__)
 
 
+# =========================
+# CREATE LISTING
+# =========================
 @listing_bp.route("/create", methods=["POST"])
 @token_required
 def create_listing(current_user):
@@ -15,76 +18,103 @@ def create_listing(current_user):
     if not current_user.is_subscribed:
         return jsonify({"error": "Subscription required"}), 403
 
-    # BASIC INFO
-    make = request.form.get("make")
-    model = request.form.get("model")
-    mileage = request.form.get("mileage")
-    price = request.form.get("price")
-
-    # NEW FIELDS
-    fuel_type = request.form.get("fuel_type")
-    gearbox = request.form.get("gearbox")
-    engine_size = request.form.get("engine_size")
-    doors = request.form.get("doors")
-    description = request.form.get("description")
-
-    # CONTACT
-    contact_phone = request.form.get("contact_phone")
-    contact_email = request.form.get("contact_email")
-    contact_whatsapp = request.form.get("contact_whatsapp")
-
-    file = request.files.get("image")
-
     listing = Listing(
         user_id=current_user.id,
-        make=make,
-        model=model,
-        mileage=mileage,
-        price=price,
-        fuel_type=fuel_type,
-        gearbox=gearbox,
-        engine_size=engine_size,
-        doors=doors,
-        description=description,
-        contact_phone=contact_phone,
-        contact_email=contact_email,
-        contact_whatsapp=contact_whatsapp,
+        make=request.form.get("make"),
+        model=request.form.get("model"),
+        mileage=request.form.get("mileage"),
+        price=request.form.get("price"),
+        fuel_type=request.form.get("fuel_type"),
+        gearbox=request.form.get("gearbox"),
+        engine_size=request.form.get("engine_size"),
+        doors=request.form.get("doors"),
+        description=request.form.get("description"),
+        contact_phone=request.form.get("contact_phone"),
+        contact_email=request.form.get("contact_email"),
+        contact_whatsapp=request.form.get("contact_whatsapp"),
     )
 
     db.session.add(listing)
     db.session.commit()
 
     # IMAGE
+    file = request.files.get("image")
+
     if file:
-        upload_folder = os.path.join(os.getcwd(), "static/uploads")
-        os.makedirs(upload_folder, exist_ok=True)
+        folder = os.path.join(os.getcwd(), "static/uploads")
+        os.makedirs(folder, exist_ok=True)
 
         filename = f"{listing.id}.png"
-        file.save(os.path.join(upload_folder, filename))
+        file.save(os.path.join(folder, filename))
         listing.image = filename
 
     # QR CODE
     qr_folder = os.path.join(os.getcwd(), "static/qrcodes")
     os.makedirs(qr_folder, exist_ok=True)
 
-    url = f"http://localhost:5173/listing/{listing.id}"
-    qr_img = qrcode.make(url)
+    qr = qrcode.make(f"http://localhost:5173/listing/{listing.id}")
 
     qr_filename = f"{listing.id}.png"
-    qr_img.save(os.path.join(qr_folder, qr_filename))
-
+    qr.save(os.path.join(qr_folder, qr_filename))
     listing.qr_code = qr_filename
 
     db.session.commit()
 
     return jsonify({
         "message": "Listing created",
-        "listing_id": listing.id,
-        "image": listing.image,
-        "qr_code": listing.qr_code
+        "listing_id": listing.id
     }), 201
 
 
+# =========================
+# UPDATE LISTING
+# =========================
+@listing_bp.route("/update/<int:listing_id>", methods=["POST"])
+@token_required
+def update_listing(current_user, listing_id):
+
+    listing = Listing.query.get(listing_id)
+
+    if not listing:
+        return jsonify({"error": "Not found"}), 404
+
+    if listing.user_id != current_user.id:
+        return jsonify({"error": "Not allowed"}), 403
+
+    listing.make = request.form.get("make")
+    listing.model = request.form.get("model")
+    listing.mileage = request.form.get("mileage")
+    listing.price = request.form.get("price")
+
+    listing.fuel_type = request.form.get("fuel_type")
+    listing.gearbox = request.form.get("gearbox")
+    listing.engine_size = request.form.get("engine_size")
+    listing.doors = request.form.get("doors")
+    listing.description = request.form.get("description")
+
+    listing.contact_phone = request.form.get("contact_phone")
+    listing.contact_email = request.form.get("contact_email")
+    listing.contact_whatsapp = request.form.get("contact_whatsapp")
+
+    # IMAGE UPDATE
+    file = request.files.get("image")
+
+    if file:
+        folder = os.path.join(os.getcwd(), "static/uploads")
+        os.makedirs(folder, exist_ok=True)
+
+        filename = f"{listing.id}.png"
+        file.save(os.path.join(folder, filename))
+        listing.image = filename
+
+    db.session.commit()
+
+    return jsonify({"message": "Updated"}), 200
+
+
+# =========================
+# GET MY LISTINGS
+# =========================
 @listing_bp.route("/my", methods=["GET"])
 @token_required
 def get_my_listings(current_user):
@@ -101,17 +131,17 @@ def get_my_listings(current_user):
             "image": l.image,
             "qr_code": l.qr_code,
 
-            # NEW
-            "fuel_type": l.fuel_type,
-            "gearbox": l.gearbox,
-            "engine_size": l.engine_size,
-            "doors": l.doors,
-            "description": l.description,
+            # SAFE SELLER INFO (NO CRASHES EVEN IF USER RELATIONSHIP BROKEN)
+            "seller_first_name": getattr(l.user, "first_name", ""),
+            "seller_last_name": getattr(l.user, "last_name", ""),
         }
         for l in listings
     ])
 
 
+# =========================
+# PUBLIC LISTING
+# =========================
 @listing_bp.route("/<int:listing_id>", methods=["GET"])
 def get_listing(listing_id):
 
@@ -133,10 +163,15 @@ def get_listing(listing_id):
         "doors": listing.doors,
         "description": listing.description,
 
+        # SAFE SELLER INFO
+        "seller_first_name": getattr(listing.user, "first_name", ""),
+        "seller_last_name": getattr(listing.user, "last_name", ""),
+        "seller_city": getattr(listing.user, "city", ""),
+
         "contact_phone": listing.contact_phone,
         "contact_email": listing.contact_email,
         "contact_whatsapp": listing.contact_whatsapp,
 
         "image": listing.image,
-        "qr_code": listing.qr_code
+        "qr_code": listing.qr_code,
     })
