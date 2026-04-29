@@ -18,6 +18,7 @@ class Listing(db.Model):
     model = db.Column(db.String(100))
     mileage = db.Column(db.Integer)
     price = db.Column(db.Integer)
+    image = db.Column(db.String, nullable=True)
 
     contact_phone = db.Column(db.String(50))
     contact_email = db.Column(db.String(120))

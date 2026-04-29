@@ -5,12 +5,16 @@ from app.routes.auth import auth_bp
 from app.routes.user import user_bp
 from app.routes.listing import listing_bp
 from app.routes.payment import payment_bp
-from app.models import User
+# from app.models import User
+from flask_cors import CORS
 
 
 def create_app():
-    app = Flask(__name__)
+    # app = Flask(__name__)
+    app = Flask(__name__, static_folder="static")
     app.config.from_object(Config)
+
+    CORS(app, origins=["http://localhost:5173"]) 
 
     db.init_app(app)
     migrate.init_app(app, db)
