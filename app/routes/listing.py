@@ -8,33 +8,44 @@ import os
 listing_bp = Blueprint("listing", __name__)
 
 
-# ➕ CREATE LISTING
 @listing_bp.route("/create", methods=["POST"])
 @token_required
 def create_listing(current_user):
 
-    # 🔒 Subscription check
     if not current_user.is_subscribed:
         return jsonify({"error": "Subscription required"}), 403
 
-    # ✅ CHANGE: use form data instead of JSON
+    # BASIC INFO
     make = request.form.get("make")
     model = request.form.get("model")
     mileage = request.form.get("mileage")
     price = request.form.get("price")
+
+    # NEW FIELDS
+    fuel_type = request.form.get("fuel_type")
+    gearbox = request.form.get("gearbox")
+    engine_size = request.form.get("engine_size")
+    doors = request.form.get("doors")
+    description = request.form.get("description")
+
+    # CONTACT
     contact_phone = request.form.get("contact_phone")
     contact_email = request.form.get("contact_email")
     contact_whatsapp = request.form.get("contact_whatsapp")
 
     file = request.files.get("image")
 
-    # ✅ Create listing first
     listing = Listing(
         user_id=current_user.id,
         make=make,
         model=model,
         mileage=mileage,
         price=price,
+        fuel_type=fuel_type,
+        gearbox=gearbox,
+        engine_size=engine_size,
+        doors=doors,
+        description=description,
         contact_phone=contact_phone,
         contact_email=contact_email,
         contact_whatsapp=contact_whatsapp,
@@ -43,38 +54,37 @@ def create_listing(current_user):
     db.session.add(listing)
     db.session.commit()
 
-    # ✅ HANDLE IMAGE UPLOAD
-    image_path = None
-
+    # IMAGE
     if file:
-        os.makedirs("static/uploads", exist_ok=True)
+        upload_folder = os.path.join(os.getcwd(), "static/uploads")
+        os.makedirs(upload_folder, exist_ok=True)
 
-        image_path = f"static/uploads/{listing.id}.png"
-        file.save(image_path)
+        filename = f"{listing.id}.png"
+        file.save(os.path.join(upload_folder, filename))
+        listing.image = filename
 
-        listing.image = image_path
+    # QR CODE
+    qr_folder = os.path.join(os.getcwd(), "static/qrcodes")
+    os.makedirs(qr_folder, exist_ok=True)
 
-    # 🔗 Generate QR code (POINTS TO FRONTEND)
     url = f"http://localhost:5173/listing/{listing.id}"
-    img = qrcode.make(url)
+    qr_img = qrcode.make(url)
 
-    os.makedirs("static/qrcodes", exist_ok=True)
-    qr_path = f"static/qrcodes/{listing.id}.png"
-    img.save(qr_path)
+    qr_filename = f"{listing.id}.png"
+    qr_img.save(os.path.join(qr_folder, qr_filename))
 
-    listing.qr_code = qr_path
+    listing.qr_code = qr_filename
 
     db.session.commit()
 
     return jsonify({
         "message": "Listing created",
         "listing_id": listing.id,
-        "qr_code": qr_path,
-        "image": image_path
+        "image": listing.image,
+        "qr_code": listing.qr_code
     }), 201
 
 
-# 📄 GET MY LISTINGS
 @listing_bp.route("/my", methods=["GET"])
 @token_required
 def get_my_listings(current_user):
@@ -88,21 +98,27 @@ def get_my_listings(current_user):
             "model": l.model,
             "price": l.price,
             "mileage": l.mileage,
-            "image": l.image,      # ✅ added
-            "qr_code": l.qr_code
+            "image": l.image,
+            "qr_code": l.qr_code,
+
+            # NEW
+            "fuel_type": l.fuel_type,
+            "gearbox": l.gearbox,
+            "engine_size": l.engine_size,
+            "doors": l.doors,
+            "description": l.description,
         }
         for l in listings
     ])
 
 
-# 🌍 PUBLIC LISTING (NO AUTH REQUIRED)
 @listing_bp.route("/<int:listing_id>", methods=["GET"])
 def get_listing(listing_id):
 
     listing = Listing.query.get(listing_id)
 
     if not listing:
-        return jsonify({"error": "Listing not found"}), 404
+        return jsonify({"error": "Not found"}), 404
 
     return jsonify({
         "id": listing.id,
@@ -110,8 +126,17 @@ def get_listing(listing_id):
         "model": listing.model,
         "mileage": listing.mileage,
         "price": listing.price,
+
+        "fuel_type": listing.fuel_type,
+        "gearbox": listing.gearbox,
+        "engine_size": listing.engine_size,
+        "doors": listing.doors,
+        "description": listing.description,
+
         "contact_phone": listing.contact_phone,
         "contact_email": listing.contact_email,
         "contact_whatsapp": listing.contact_whatsapp,
-        "image": listing.image  # ✅ added
+
+        "image": listing.image,
+        "qr_code": listing.qr_code
     })

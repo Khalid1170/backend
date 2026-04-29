@@ -1,5 +1,6 @@
 from .extensions import db
 
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -18,10 +19,17 @@ class Listing(db.Model):
     model = db.Column(db.String(100))
     mileage = db.Column(db.Integer)
     price = db.Column(db.Integer)
-    image = db.Column(db.String, nullable=True)
+
+    # NEW FIELDS
+    fuel_type = db.Column(db.String(50))
+    gearbox = db.Column(db.String(50))
+    engine_size = db.Column(db.String(20))
+    doors = db.Column(db.String(10))
+    description = db.Column(db.Text)
+
+    image = db.Column(db.String(255), nullable=True)
+    qr_code = db.Column(db.String(255), nullable=True)
 
     contact_phone = db.Column(db.String(50))
     contact_email = db.Column(db.String(120))
     contact_whatsapp = db.Column(db.String(50))
-
-    qr_code = db.Column(db.String(255))
