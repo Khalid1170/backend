@@ -15,7 +15,7 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/register", methods=["POST"])
 def register():
 
-    data = request.form
+    data = request.get_json()  # ✅ FIX
 
     email = data.get("email")
     username = data.get("username")
@@ -24,8 +24,6 @@ def register():
     phone_number = data.get("phone_number")
     city = data.get("city")
     password = data.get("password")
-
-    file = request.files.get("profile_pic")
 
     if not all([email, username, first_name, last_name, phone_number, city, password]):
         return jsonify({"error": "All fields are required"}), 400
@@ -47,6 +45,8 @@ def register():
 
     db.session.add(user)
     db.session.commit()
+
+    return jsonify({"message": "User created successfully"}), 201
 
     # profile pic
     if file:

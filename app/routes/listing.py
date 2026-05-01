@@ -113,8 +113,6 @@ def update_listing(current_user, listing_id):
 
 
 # =========================
-# GET MY LISTINGS
-# =========================
 @listing_bp.route("/my", methods=["GET"])
 @token_required
 def get_my_listings(current_user):
@@ -124,19 +122,60 @@ def get_my_listings(current_user):
     return jsonify([
         {
             "id": l.id,
+            
+            
+
             "make": l.make,
             "model": l.model,
             "price": l.price,
             "mileage": l.mileage,
             "image": l.image,
             "qr_code": l.qr_code,
+            "user_id": l.user_id,  # ✅ FIXED
 
-            # SAFE SELLER INFO (NO CRASHES EVEN IF USER RELATIONSHIP BROKEN)
-            "seller_first_name": getattr(l.user, "first_name", ""),
-            "seller_last_name": getattr(l.user, "last_name", ""),
+            # SAFE SELLER INFO
+            # "seller_first_name": getattr(l.user, "first_name", ""),
+            # "seller_last_name": getattr(l.user, "last_name", ""),
         }
         for l in listings
     ])
+# =========================
+# DELETE LISTING
+# =========================
+@listing_bp.route("/<int:listing_id>", methods=["DELETE"])
+@token_required
+def delete_listing(current_user, listing_id):
+
+    listing = Listing.query.get(listing_id)
+
+    if not listing:
+        return jsonify({"error": "Listing not found"}), 404
+
+    # 🔒 SECURITY CHECK (VERY IMPORTANT)
+    if listing.user_id != current_user.id:
+        return jsonify({"error": "Not allowed"}), 403
+
+    try:
+        # OPTIONAL: delete image file
+        if listing.image:
+            image_path = os.path.join(os.getcwd(), "static/uploads", listing.image)
+            if os.path.exists(image_path):
+                os.remove(image_path)
+
+        # OPTIONAL: delete QR code file
+        if listing.qr_code:
+            qr_path = os.path.join(os.getcwd(), "static/qrcodes", listing.qr_code)
+            if os.path.exists(qr_path):
+                os.remove(qr_path)
+
+        db.session.delete(listing)
+        db.session.commit()
+
+        return jsonify({"message": "Listing deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Delete failed", "details": str(e)}), 500
 
 
 # =========================
@@ -152,6 +191,7 @@ def get_listing(listing_id):
 
     return jsonify({
         "id": listing.id,
+        "user_id": listing.user_id,
         "make": listing.make,
         "model": listing.model,
         "mileage": listing.mileage,
@@ -175,3 +215,4 @@ def get_listing(listing_id):
         "image": listing.image,
         "qr_code": listing.qr_code,
     })
+
