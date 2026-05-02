@@ -38,9 +38,17 @@ class Listing(db.Model):
     doors = db.Column(db.String(10))
     description = db.Column(db.Text)
 
-    image = db.Column(db.String(255), nullable=True)
     qr_code = db.Column(db.String(255), nullable=True)
 
     contact_phone = db.Column(db.String(50))
     contact_email = db.Column(db.String(120))
     contact_whatsapp = db.Column(db.String(50))
+
+    # 🔥 RELATIONSHIP FOR MULTIPLE IMAGES
+    images = db.relationship("ListingImage", backref="listing", cascade="all, delete")
+
+
+class ListingImage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    listing_id = db.Column(db.Integer, db.ForeignKey("listing.id"), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)

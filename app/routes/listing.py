@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import db
-from app.models import Listing
+from app.models import Listing, ListingImage
 from app.utils.auth import token_required
 import qrcode
 import os
@@ -37,25 +37,31 @@ def create_listing(current_user):
     db.session.add(listing)
     db.session.commit()
 
-    # IMAGE
-    file = request.files.get("image")
+    # 🔥 MULTIPLE IMAGES
+    files = request.files.getlist("images")
 
-    if file:
-        folder = os.path.join(os.getcwd(), "static/uploads")
-        os.makedirs(folder, exist_ok=True)
+    upload_folder = os.path.join(os.getcwd(), "static/uploads")
+    os.makedirs(upload_folder, exist_ok=True)
 
-        filename = f"{listing.id}.png"
-        file.save(os.path.join(folder, filename))
-        listing.image = filename
+    for i, file in enumerate(files):
+        if file:
+            filename = f"{listing.id}_{i}.png"
+            file.save(os.path.join(upload_folder, filename))
+
+            img = ListingImage(
+                listing_id=listing.id,
+                filename=filename
+            )
+            db.session.add(img)
 
     # QR CODE
     qr_folder = os.path.join(os.getcwd(), "static/qrcodes")
     os.makedirs(qr_folder, exist_ok=True)
 
     qr = qrcode.make(f"http://localhost:5173/listing/{listing.id}")
-
     qr_filename = f"{listing.id}.png"
     qr.save(os.path.join(qr_folder, qr_filename))
+
     listing.qr_code = qr_filename
 
     db.session.commit()
@@ -96,22 +102,39 @@ def update_listing(current_user, listing_id):
     listing.contact_email = request.form.get("contact_email")
     listing.contact_whatsapp = request.form.get("contact_whatsapp")
 
-    # IMAGE UPDATE
-    file = request.files.get("image")
+    # 🔥 REPLACE IMAGES
+    files = request.files.getlist("images")
 
-    if file:
-        folder = os.path.join(os.getcwd(), "static/uploads")
-        os.makedirs(folder, exist_ok=True)
+    if files:
+        # delete old images
+        for img in listing.images:
+            path = os.path.join(os.getcwd(), "static/uploads", img.filename)
+            if os.path.exists(path):
+                os.remove(path)
+            db.session.delete(img)
 
-        filename = f"{listing.id}.png"
-        file.save(os.path.join(folder, filename))
-        listing.image = filename
+        # save new
+        upload_folder = os.path.join(os.getcwd(), "static/uploads")
+        os.makedirs(upload_folder, exist_ok=True)
+
+        for i, file in enumerate(files):
+            if file:
+                filename = f"{listing.id}_{i}.png"
+                file.save(os.path.join(upload_folder, filename))
+
+                new_img = ListingImage(
+                    listing_id=listing.id,
+                    filename=filename
+                )
+                db.session.add(new_img)
 
     db.session.commit()
 
     return jsonify({"message": "Updated"}), 200
 
 
+# =========================
+# GET MY LISTINGS
 # =========================
 @listing_bp.route("/my", methods=["GET"])
 @token_required
@@ -122,25 +145,19 @@ def get_my_listings(current_user):
     return jsonify([
         {
             "id": l.id,
-            
-            
-
             "make": l.make,
             "model": l.model,
             "price": l.price,
             "mileage": l.mileage,
-            "image": l.image,
-            "qr_code": l.qr_code,
-            "user_id": l.user_id,  # ✅ FIXED
-
-            # SAFE SELLER INFO
-            # "seller_first_name": getattr(l.user, "first_name", ""),
-            # "seller_last_name": getattr(l.user, "last_name", ""),
+            "images": [img.filename for img in l.images],
+            "user_id": l.user_id,
         }
         for l in listings
     ])
+
+
 # =========================
-# DELETE LISTING
+# DELETE
 # =========================
 @listing_bp.route("/<int:listing_id>", methods=["DELETE"])
 @token_required
@@ -149,37 +166,24 @@ def delete_listing(current_user, listing_id):
     listing = Listing.query.get(listing_id)
 
     if not listing:
-        return jsonify({"error": "Listing not found"}), 404
+        return jsonify({"error": "Not found"}), 404
 
-    # 🔒 SECURITY CHECK (VERY IMPORTANT)
     if listing.user_id != current_user.id:
         return jsonify({"error": "Not allowed"}), 403
 
-    try:
-        # OPTIONAL: delete image file
-        if listing.image:
-            image_path = os.path.join(os.getcwd(), "static/uploads", listing.image)
-            if os.path.exists(image_path):
-                os.remove(image_path)
+    for img in listing.images:
+        path = os.path.join(os.getcwd(), "static/uploads", img.filename)
+        if os.path.exists(path):
+            os.remove(path)
 
-        # OPTIONAL: delete QR code file
-        if listing.qr_code:
-            qr_path = os.path.join(os.getcwd(), "static/qrcodes", listing.qr_code)
-            if os.path.exists(qr_path):
-                os.remove(qr_path)
+    db.session.delete(listing)
+    db.session.commit()
 
-        db.session.delete(listing)
-        db.session.commit()
-
-        return jsonify({"message": "Listing deleted"}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "Delete failed", "details": str(e)}), 500
+    return jsonify({"message": "Deleted"})
 
 
 # =========================
-# PUBLIC LISTING
+# PUBLIC
 # =========================
 @listing_bp.route("/<int:listing_id>", methods=["GET"])
 def get_listing(listing_id):
@@ -203,16 +207,10 @@ def get_listing(listing_id):
         "doors": listing.doors,
         "description": listing.description,
 
-        # SAFE SELLER INFO
-        "seller_first_name": getattr(listing.user, "first_name", ""),
-        "seller_last_name": getattr(listing.user, "last_name", ""),
-        "seller_city": getattr(listing.user, "city", ""),
-
         "contact_phone": listing.contact_phone,
         "contact_email": listing.contact_email,
         "contact_whatsapp": listing.contact_whatsapp,
 
-        "image": listing.image,
+        "images": [img.filename for img in listing.images],
         "qr_code": listing.qr_code,
     })
-
