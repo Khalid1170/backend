@@ -214,3 +214,29 @@ def get_listing(listing_id):
         "images": [img.filename for img in listing.images],
         "qr_code": listing.qr_code,
     })
+
+# =========================
+# GET ALL PUBLIC LISTINGS (MARKETPLACE)
+# =========================
+@listing_bp.route("/all", methods=["GET"])
+def get_all_listings():
+    # Fetch all listings, ordered by newest first
+    listings = Listing.query.order_by(Listing.id.desc()).all()
+
+    return jsonify([
+        {
+            "id": l.id,
+            "user_id": l.user_id,
+            "make": l.make,
+            "model": l.model,
+            "price": l.price,
+            "mileage": l.mileage,
+            "fuel_type": l.fuel_type,
+            "gearbox": l.gearbox,
+            "images": [img.filename for img in l.images],
+            # If you have a relationship set up with the User model, 
+            # you can pass the city here like this:
+            # "city": l.user.city if hasattr(l, 'user') and l.user else None
+        }
+        for l in listings
+    ])
