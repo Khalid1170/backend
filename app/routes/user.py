@@ -6,30 +6,20 @@ import os
 user_bp = Blueprint("user", __name__)
 
 
-# =========================
-# GET CURRENT USER
-# =========================
 @user_bp.route("/me", methods=["GET"])
 @token_required
 def get_me(current_user):
     return jsonify({
         "id": current_user.id,
         "email": current_user.email,
-
-        # ✅ ADD THESE (THIS FIXES YOUR DASHBOARD)
         "first_name": current_user.first_name,
         "last_name": current_user.last_name,
         "phone_number": current_user.phone_number,
         "city": current_user.city,
-        "profile_pic": current_user.profile_pic,
-
-        "is_subscribed": current_user.is_subscribed
-    })
+        "profile_pic": current_user.profile_pic
+    }), 200
 
 
-# =========================
-# UPDATE PROFILE
-# =========================
 @user_bp.route("/update", methods=["PUT"])
 @token_required
 def update_profile(current_user):

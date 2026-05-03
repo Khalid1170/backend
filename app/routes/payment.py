@@ -2,71 +2,88 @@ from flask import Blueprint, jsonify, request
 import stripe
 import os
 from app.utils.auth import token_required
-from app.models import User
+from app.models import Listing
 from app.extensions import db
+import qrcode
 
 payment_bp = Blueprint("payment", __name__)
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
-# 💳 CREATE CHECKOUT SESSION
-@payment_bp.route("/create-checkout-session", methods=["POST"])
+# =========================
+# CREATE CHECKOUT
+# =========================
+@payment_bp.route("/create-checkout-session/<int:listing_id>", methods=["POST"])
 @token_required
-def create_checkout_session(current_user):
-    try:
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            mode="subscription",
+def create_checkout_session(current_user, listing_id):
 
-            # ✅ LINK USER TO STRIPE
-            metadata={
-                "user_id": current_user.id
-            },
+    listing = Listing.query.get(listing_id)
 
-            line_items=[{
-                "price_data": {
-                    "currency": "gbp",
-                    "product_data": {
-                        "name": "TagMyCar Subscription",
-                    },
-                    "unit_amount": 1000,
-                    "recurring": {"interval": "month"},
+    if not listing:
+        return jsonify({"error": "Not found"}), 404
+
+    if listing.user_id != current_user.id:
+        return jsonify({"error": "Not allowed"}), 403
+
+    data = request.get_json()
+
+    # save delivery info
+    listing.delivery_name = data.get("name")
+    listing.delivery_address = data.get("address")
+    listing.delivery_city = data.get("city")
+    listing.delivery_postcode = data.get("postcode")
+
+    db.session.commit()
+
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        mode="payment",
+        metadata={"listing_id": listing.id},
+        line_items=[{
+            "price_data": {
+                "currency": "gbp",
+                "product_data": {
+                    "name": f"{listing.make} {listing.model} Listing"
                 },
-                "quantity": 1,
-            }],
+                "unit_amount": 500,
+            },
+            "quantity": 1,
+        }],
+        success_url="http://localhost:5173/success",
+        cancel_url="http://localhost:5173/dashboard",
+    )
 
-            success_url="http://localhost:5173/success",
-            cancel_url="http://localhost:5173/cancel",
-        )
-
-        return jsonify({"url": session.url})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"url": session.url})
 
 
-# 🔔 STRIPE WEBHOOK
+# =========================
+# WEBHOOK
+# =========================
 @payment_bp.route("/webhook", methods=["POST"])
 def stripe_webhook():
+
     event = request.get_json()
 
-    print("🔔 Webhook received:", event.get("type"))
-
     if event.get("type") == "checkout.session.completed":
+
         session = event["data"]["object"]
+        listing_id = session.get("metadata", {}).get("listing_id")
 
-        user_id = session.get("metadata", {}).get("user_id")
+        listing = Listing.query.get(listing_id)
 
-        if not user_id:
-            print("❌ No user_id in metadata")
-            return "", 400
+        if listing:
+            listing.is_active = True
 
-        user = User.query.get(user_id)
+            qr_folder = os.path.join(os.getcwd(), "static/qrcodes")
+            os.makedirs(qr_folder, exist_ok=True)
 
-        if user:
-            user.is_subscribed = True
+            qr = qrcode.make(f"http://localhost:5173/listing/{listing.id}")
+            qr_filename = f"{listing.id}.png"
+            qr.save(os.path.join(qr_folder, qr_filename))
+
+            listing.qr_code = qr_filename
+
             db.session.commit()
-            print(f"✅ User {user.email} subscribed")
 
     return "", 200

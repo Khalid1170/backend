@@ -17,7 +17,7 @@ class User(db.Model):
 
     password_hash = db.Column(db.String(255), nullable=False)
 
-    is_subscribed = db.Column(db.Boolean, default=False)
+    # ❌ REMOVED is_subscribed
 
     listings = db.relationship("Listing", backref="user", lazy=True)
 
@@ -32,6 +32,9 @@ class Listing(db.Model):
     mileage = db.Column(db.Integer)
     price = db.Column(db.Integer)
 
+    location = db.Column(db.String(255), nullable=True)
+    
+
     fuel_type = db.Column(db.String(50))
     gearbox = db.Column(db.String(50))
     engine_size = db.Column(db.String(20))
@@ -40,11 +43,18 @@ class Listing(db.Model):
 
     qr_code = db.Column(db.String(255), nullable=True)
 
+    is_active = db.Column(db.Boolean, default=False)
+
     contact_phone = db.Column(db.String(50))
     contact_email = db.Column(db.String(120))
     contact_whatsapp = db.Column(db.String(50))
 
-    # 🔥 RELATIONSHIP FOR MULTIPLE IMAGES
+    # ✅ NEW DELIVERY FIELDS
+    delivery_name = db.Column(db.String(120))
+    delivery_address = db.Column(db.String(255))
+    delivery_city = db.Column(db.String(100))
+    delivery_postcode = db.Column(db.String(20))
+
     images = db.relationship("ListingImage", backref="listing", cascade="all, delete")
 
 
