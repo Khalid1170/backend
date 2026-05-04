@@ -31,6 +31,7 @@ class Listing(db.Model):
     model = db.Column(db.String(100))
     mileage = db.Column(db.Integer)
     price = db.Column(db.Integer)
+    year = db.Column(db.Integer)
 
     location = db.Column(db.String(255), nullable=True)
     

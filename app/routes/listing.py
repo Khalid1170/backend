@@ -19,6 +19,7 @@ def create_listing(current_user):
         model=request.form.get("model"),
         mileage=request.form.get("mileage"),
         price=request.form.get("price"),
+        year=request.form.get("year"),
         fuel_type=request.form.get("fuel_type"),
         gearbox=request.form.get("gearbox"),
         engine_size=request.form.get("engine_size"),
@@ -76,6 +77,7 @@ def update_listing(current_user, listing_id):
     listing.model = request.form.get("model")
     listing.mileage = request.form.get("mileage")
     listing.price = request.form.get("price")
+    listing.year = request.form.get("year")
     listing.fuel_type = request.form.get("fuel_type")
     listing.gearbox = request.form.get("gearbox")
     listing.engine_size = request.form.get("engine_size")
@@ -130,10 +132,22 @@ def get_my_listings(current_user):
             "make": l.make,
             "model": l.model,
             "price": l.price,
+            "year": l.year,
             "mileage": l.mileage,
+            "fuel_type": l.fuel_type,
+            "gearbox": l.gearbox,
+            "engine_size": l.engine_size,
+            "doors": l.doors,
+            "description": l.description,
+
+            "contact_phone": l.contact_phone,
+            "contact_email": l.contact_email,
+            "contact_whatsapp": l.contact_whatsapp,
+
             "images": [img.filename for img in l.images],
+
+            "location": l.location,
             "is_active": l.is_active,
-            "location": l.location
         }
         for l in listings
     ])
@@ -157,6 +171,7 @@ def get_my_single_listing(current_user, listing_id):
         "model": listing.model,
         "mileage": listing.mileage,
         "price": listing.price,
+        "year" : listing.year,
         "fuel_type": listing.fuel_type,
         "gearbox": listing.gearbox,
         "engine_size": listing.engine_size,
@@ -167,7 +182,8 @@ def get_my_single_listing(current_user, listing_id):
         "contact_whatsapp": listing.contact_whatsapp,
         "images": [img.filename for img in listing.images],
         "location": listing.location,
-        "is_active": listing.is_active
+        "is_active": listing.is_active,
+        "qr_code": listing.qr_code
     })
 
 
@@ -187,6 +203,7 @@ def get_listing(listing_id):
         "model": listing.model,
         "mileage": listing.mileage,
         "price": listing.price,
+        "year" : listing.year,
         "fuel_type": listing.fuel_type,
         "gearbox": listing.gearbox,
         "engine_size": listing.engine_size,
@@ -196,7 +213,8 @@ def get_listing(listing_id):
         "contact_email": listing.contact_email,
         "contact_whatsapp": listing.contact_whatsapp,
         "images": [img.filename for img in listing.images],
-        "location": listing.location
+        "location": listing.location,
+        "qr_code": listing.qr_code
     })
 
 
@@ -213,6 +231,7 @@ def get_all_listings():
             "make": l.make,
             "model": l.model,
             "price": l.price,
+            "year" : l.year,
             "mileage": l.mileage,
             "images": [img.filename for img in l.images],
             "location": l.location
