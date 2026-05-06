@@ -1,4 +1,5 @@
 from .extensions import db
+from datetime import datetime
 
 
 class User(db.Model):
@@ -34,7 +35,8 @@ class Listing(db.Model):
     year = db.Column(db.Integer)
 
     location = db.Column(db.String(255), nullable=True)
-    
+    expiry_date = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     fuel_type = db.Column(db.String(50))
     gearbox = db.Column(db.String(50))
@@ -63,3 +65,19 @@ class ListingImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     listing_id = db.Column(db.Integer, db.ForeignKey("listing.id"), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
+
+
+def to_dict(self):
+    return {
+        "id": self.id,
+        "make": self.make,
+        "model": self.model,
+        "price": self.price,
+        "year": self.year,
+        "mileage": self.mileage,
+        "location": self.location,
+        "is_active": self.is_active,
+        # THIS IS THE MISSING LINK:
+        "expiry_date": self.expiry_date.isoformat() if self.expiry_date else None,
+        "images": [img.filename for img in self.images] if self.images else [],
+    }

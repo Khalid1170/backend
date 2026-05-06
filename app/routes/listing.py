@@ -3,6 +3,7 @@ from app.extensions import db
 from app.models import Listing, ListingImage
 from app.utils.auth import token_required
 import os
+from datetime import datetime
 
 listing_bp = Blueprint("listing", __name__)
 
@@ -148,6 +149,7 @@ def get_my_listings(current_user):
 
             "location": l.location,
             "is_active": l.is_active,
+            "expiry_date": l.expiry_date.isoformat() if l.expiry_date else None,
         }
         for l in listings
     ])
@@ -218,12 +220,19 @@ def get_listing(listing_id):
     })
 
 
+
 # =========================
-# MARKETPLACE
+# MARKETPLACE (Updated with Expiry Filter)
 # =========================
 @listing_bp.route("/all", methods=["GET"])
 def get_all_listings():
-    listings = Listing.query.filter_by(is_active=True).order_by(Listing.id.desc()).all()
+    now = datetime.utcnow()
+    
+    # Filter: is_active must be True AND expiry_date must be in the future
+    listings = Listing.query.filter(
+        Listing.is_active == True,
+        Listing.expiry_date > now
+    ).order_by(Listing.id.desc()).all()
 
     return jsonify([
         {
