@@ -12,11 +12,12 @@ def create_app():
     # CONFIG
     # =========================
     app.config.from_object(Config)
+    app.config['JSON_SORT_KEYS'] = False
 
     # =========================
     # CORS
     # =========================
-    CORS(app, origins=["http://localhost:5173"])
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     # =========================
     # DB + MIGRATIONS
@@ -25,7 +26,7 @@ def create_app():
     migrate.init_app(app, db)
 
     # =========================
-    # IMPORT BLUEPRINTS (INSIDE FUNCTION = IMPORTANT FIX)
+    # IMPORT BLUEPRINTS
     # =========================
     from app.routes.auth import auth_bp
     from app.routes.user import user_bp
@@ -48,26 +49,33 @@ def create_app():
         return "TagMyCar API running 🚀"
 
     # =========================
-    # STATIC FILES (UPLOADS)
+    # UPLOADS
     # =========================
     @app.route("/uploads/<filename>")
     def uploads(filename):
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "uploads")
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..",
+            "static",
+            "uploads"
+        )
         path = os.path.abspath(path)
         return send_from_directory(path, filename)
 
     # =========================
-    # STATIC FILES (QRCODES)
+    # QR CODES
     # =========================
     @app.route("/qrcodes/<filename>")
     def qrcodes(filename):
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "qrcodes")
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..",
+            "static",
+            "qrcodes"
+        )
         path = os.path.abspath(path)
         return send_from_directory(path, filename)
 
-    # =========================
-    # DEBUG ROUTE MAP (MUST BE AT END)
-    # =========================
     print("REGISTERING ROUTES...")
     print(app.url_map)
 
